@@ -1,0 +1,107 @@
+--@name Horror
+--@author Lolz
+--@client
+
+local owner, client, chip, world = owner(), player(), chip(), entity(0)
+
+local sounds = {
+    "sfx/skidding.wav",
+    "music/hl2_song30.mp3",
+}
+local anims = {
+    "walk_all",
+}
+local flexes = {
+    ["smile"] = 1.5,
+    ["dilator"] = 12,
+    ["wrinkler"] = 1,
+    ["tightener"] = -8,
+    ["jaw_drop"] = 2,
+    ["lower_lip"] = 6,
+    ["chin_raiser"] = -10,
+    ["right_outer_raiser"] = 2,
+    ["right_inner_raiser"] = -1,
+    ["left_outer_raiser"] = 2,
+    ["left_inner_raiser"] = -1,
+}
+local bones = {
+    ["Head1"] = Vector(1.1, 1.2, 1.5),
+    ["Pelvis"] = Vector(0.9),
+    ["R_Calf"] = Vector(0.8),
+    ["L_Calf"] = Vector(0.8),
+    ["R_Shoulder"] = Vector(0.8),
+    ["L_Shoulder"] = Vector(0.8),
+    ["Spine4"] = Vector(1.9, 1.2, 1.2),
+}
+
+-------------------------------------------
+
+local ebaka = {}
+ebaka.__index = ebaka
+
+function ebakaCreate()
+    local holo = hologram.create(chip:getPos() + chip:getUp() * 0, chip:getAngles(), "models/gman_high.mdl", Vector(0.9, 0.9, 1.1))
+    holo:setMaterial("models/eli/mouth")
+    holo:setBodygroup(1, 1)
+    
+    
+    for flex, weight in pairs(flexes) do
+        holo:setFlexWeight(holo:getFlexByName(flex), weight)
+    end
+    for bone, scale in pairs(bones) do
+        holo:manipulateBoneScale(holo:lookupBone("ValveBiped.Bip01_" .. bone), scale)
+    end
+
+    return setmetatable( { holo = holo, seen = true }, ebaka )
+end
+
+-------------------------------------------
+
+function is_visible(pos)
+    return pos:toScreen().visible
+end
+
+function get_teleport_pos()
+    local t = math.rand(-math.pi * 2, math.pi * 2)
+    local range = math.rand(200, 500)
+    local pos = client:getPos() + Vector(math.cos(t) * range, math.sin(t) * range)
+    local ray = trace.line(pos + Vector(0, 0, 200), pos - Vector(0, 0, 200))
+    if ray.Hit and not is_visible(ray.HitPos) then
+        return ray.HitPos
+    end
+end
+
+function ebaka:teleport()
+    local pos = get_teleport_pos()
+    local holo = self.holo
+    if pos then
+        holo:setPos(pos)
+        holo:setAngles(Angle(0, (client:getPos() - holo:getPos()):getAngle().y, 0))
+        holo:setAnimation(anims[math.random(#anims)], math.rand(0, 1), 0)
+        holo:emitSound(sounds[math.random(#sounds)], 100, 100)
+    end
+end
+
+function ebaka:update()
+    local visible = is_visible( self.holo:getPos() + Vector(0, 0, 30) )
+    if visible then
+        self.seen = true
+    end
+    if not visible and self.seen then
+        self:teleport()
+        self.seen = false
+    end
+end
+-------------------------------------------
+
+local ebaka_tables = {}
+
+for i = 1, 8 do
+    table.insert( ebaka_tables, ebakaCreate() )
+end
+
+hook.add( "think", "", function()
+    for _, ebaka in ipairs( ebaka_tables ) do
+        ebaka:update()
+    end
+end)
